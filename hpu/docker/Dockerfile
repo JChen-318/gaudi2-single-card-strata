@@ -8,7 +8,8 @@
 #     --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple .
 #
 # Run: hpu/docker/compose.yaml (or the docker run line in the README). The host needs the habanalabs driver
-# 1.24.x; the container gets the card as /dev/accel/accel0 + /dev/accel/accel_controlD0, no special runtime.
+# 1.24.x; the container gets the card as /dev/accel/accel0 + /dev/accel/accel_controlD0 and its verbs device
+# /dev/infiniband/uverbs0 (without it the device acquire fails with Synapse status 26), no special runtime.
 #
 # The SynapseAI release of the base image must match the host driver (1.24.x here). The TPC compiler
 # (tpc-clang, package habanalabs-tools) is not in the base image, so it comes from Habana's apt repository.

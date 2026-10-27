@@ -46,6 +46,49 @@ Gaudi2 原生后端 `hpu/`：模型的每一层都编译成 SynapseAI 图，在 
 - **DFlash2 draft 模型**：[incoai/Qwen3.8-Flash-Next-DFlash2](https://huggingface.co/incoai/Qwen3.8-Flash-Next-DFlash2)（方法见 [z-lab/dflash](https://github.com/z-lab/dflash)），下载整个仓库目录，用环境变量 `STRATA_HPU_DFLASH` 指向它。
 - **tokenizer 目录**：Strata setup 为该模型生成的 tokenizer（`pack/full/tokenizer`，参见 [docs/AI_SETUP.md](docs/AI_SETUP.md)），用 config 的 `"tokenizer"` 字段指向它。
 
+## Docker（推荐）
+
+[`hpu/docker/`](hpu/docker/) 提供镜像和 compose 文件：
+
+- 基础镜像是 Habana 1.24.1 官方镜像（Ubuntu 24.04），TPC 编译器 `tpc-clang` 从 Habana 的 apt 源安装；
+- 引擎和 TPC kernel 在 `docker build` 时编译；
+- 宿主机只需要装 habanalabs 驱动 1.24.x，不需要专门的容器运行时；
+- 卡通过 `/dev/accel/accel0`、`/dev/accel/accel_controlD0` 映射进容器。
+- 还要映射 `/dev/infiniband/uverbs0`，否则 SynapseAI 拿卡时会失败，报 `synDeviceAcquireByDeviceType ... status 26`。
+- 首次启动要从磁盘读入约 100 GB 的模型和 PLE 表；在作者的 NAS 上，加上自动预热，大约 10 分钟后才能服务。
+
+```bash
+git clone https://github.com/JChen-318/gaudi2-single-card-strata.git
+cd gaudi2-single-card-strata
+# MODELS 目录下应有 qwen3.8-flash-next-uncensored-iq4xs/（GGUF 三个分片）和 qwen3.8-flash-next-dflash2/
+MODELS=/path/to/models TOKENIZER=/path/to/tokenizer \
+  docker compose -f hpu/docker/compose.yaml up -d --build
+docker logs -f strata-gaudi2        # 等到出现 ready 和 warm-up done
+```
+
+或者不用 compose：
+
+```bash
+docker build -f hpu/docker/Dockerfile -t strata-gaudi2 .
+docker run -d --name strata-gaudi2 --restart unless-stopped \
+  --device /dev/accel/accel0 --device /dev/accel/accel_controlD0 --device /dev/infiniband/uverbs0 \
+  --ipc host --network host --cap-add SYS_NICE --ulimit memlock=-1:-1 \
+  -v /path/to/models:/models:ro -v /path/to/tokenizer:/tokenizer:ro \
+  strata-gaudi2
+```
+
+容器支持的环境变量：
+
+| 变量 | 作用 |
+|---|---|
+| `MODEL_GGUF`、`DFLASH_DIR`、`TOKENIZER_DIR` | 模型、drafter、tokenizer 在容器内的路径（默认值对应上面的挂载方式） |
+| `STRATA_PORT` | 端口，默认 8080 |
+| `API_KEY` | 设置后客户端必须带这个 key |
+| `WARMUP` | 默认 1：服务就绪后用 8191、4095、2047 token 的 prompt 各跑一次，把常用窗口尺寸的图预先编译好 |
+| `--build-arg PIP_INDEX_URL=...` | 构建时换 pip 镜像源 |
+
+同一时间只能有一个进程占用这张卡，启动容器前请先停掉宿主机上的其他服务。
+
 ## 构建
 
 ```bash

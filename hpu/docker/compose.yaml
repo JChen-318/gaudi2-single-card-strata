@@ -12,10 +12,12 @@ services:
         PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     container_name: strata-gaudi2
     restart: unless-stopped
-    # The card, the host IPC namespace and unlimited locked memory (pinned host buffers).
+    # The card (with its InfiniBand verbs device: SynapseAI's HCL opens it when the device is acquired), the host IPC
+    # namespace and unlimited locked memory (pinned host buffers).
     devices:
       - /dev/accel/accel0:/dev/accel/accel0
       - /dev/accel/accel_controlD0:/dev/accel/accel_controlD0
+      - /dev/infiniband/uverbs0:/dev/infiniband/uverbs0
     ipc: host
     network_mode: host
     cap_add: [SYS_NICE]
