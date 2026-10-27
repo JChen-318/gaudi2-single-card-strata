@@ -40,10 +40,10 @@ Gaudi2 原生后端 `hpu/`：模型的每一层都编译成 SynapseAI 图，在 
 
 ## 模型文件
 
-- **目标模型**：Qwen3.8-Flash-Next-Uncensored IQ4_XS GGUF（3 个分片，config 中写第一个分片的路径）。
+- **目标模型**：[orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF](https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF) 中的 IQ4_XS 版本（3 个分片，config 中写第一个分片的路径）。
   - 512 个专家全部以 IQ4 码 + F32 scale 的形式常驻 HBM，约 76 GB。
   - 运行参数需要 `--hbm-limit-mib 94208 --vram-reserve-mib 2048`。
-- **DFlash2 draft 模型**：Qwen3.8-Flash-Next-DFlash2（[z-lab/dflash](https://github.com/z-lab/dflash)），一个目录，用环境变量 `STRATA_HPU_DFLASH` 指向它。
+- **DFlash2 draft 模型**：[incoai/Qwen3.8-Flash-Next-DFlash2](https://huggingface.co/incoai/Qwen3.8-Flash-Next-DFlash2)（方法见 [z-lab/dflash](https://github.com/z-lab/dflash)），下载整个仓库目录，用环境变量 `STRATA_HPU_DFLASH` 指向它。
 - **tokenizer 目录**：Strata setup 为该模型生成的 tokenizer（`pack/full/tokenizer`，参见 [docs/AI_SETUP.md](docs/AI_SETUP.md)），用 config 的 `"tokenizer"` 字段指向它。
 
 ## 构建
