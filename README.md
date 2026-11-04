@@ -1,158 +1,233 @@
-# Strata on a single Intel Gaudi2
+<div align="center">
 
-在**一张 Intel Gaudi2（HL-225，96 GB HBM）**上原生运行 Qwen3.8-Flash-Next（512 专家 MoE，48 层，256k 上下文）的推理引擎，
-提供 OpenAI / Anthropic 兼容 API。
+# Strata on a Single Gaudi2
 
-本仓库基于 [Strata](docs/STRATA_UPSTREAM_README.md)（MIT 许可，见 [LICENSE](LICENSE)）。在它的服务端（`serve/`）之下新增了一个
-Gaudi2 原生后端 `hpu/`：模型的每一层都编译成 SynapseAI 图，在 MME 和 TPC 上执行，并配有一百多个自写的 TPC kernel。
-上游的 CUDA/HIP/SYCL/Metal 后端原样保留，但与本后端无关。
+**Native Qwen3.8-Flash-Next inference: 512 MoE experts on one Intel Gaudi2.**
 
-## 实测性能
+[![Intel Gaudi2: 96 GiB HBM](https://img.shields.io/badge/Intel_Gaudi2-96_GiB_HBM-0071C5?style=flat-square)](#tested-environment)
+[![Backend: SynapseAI and TPC](https://img.shields.io/badge/Backend-SynapseAI_%2B_TPC-4B5563?style=flat-square)](#how-it-works)
+[![License: MIT](https://img.shields.io/badge/License-MIT-3FB950?style=flat-square)](LICENSE)
 
-所有数字均在下文"测试环境"一节的机器上测得，模型为 IQ4_XS GGUF，单请求。
+[Performance](#performance) · [Docker quick start](#docker-quick-start) · [Build from source](#build-from-source) · [API](#api) · [Limitations](#limitations)
 
-**decode**（DFlash2 投机解码，block 4，greedy，生产服务，[llm_speedtest](https://github.com/gengchaogit/llm_speedtest)，2026-10-26）：
+</div>
 
-| 上下文 | 2k | 8k | 32k | 64k | 128k |
-|---|---|---|---|---|---|
-| tok/s | 155.7 | 103.1 | 112.1 | 92.9 | 98.6 |
+<p align="center">
+  <img src="docs/assets/gaudi2-native-path.svg" width="100%" alt="Native Strata backend: 512 IQ4 experts reside in Gaudi2 HBM; SynapseAI graphs run on MME and custom TPC kernels, with DFlash2 verification.">
+</p>
 
-- 平均每轮 verify 接受约 2.9 个 token。2026-10-27 起又启用了 `GDN_STEP_ROWS` 和 `GEMV_PARTS_GU_WINDOW`：4 行 verify 窗口在 2k 上下文下从 19.26 ms 降到 18.63 ms（119 个窗口的截尾平均）。
-- 不开 DFlash 时，单 token decode 约 12.8 ms/token（2k 上下文，probe）。
+This repository adds a **native Gaudi2 backend** to [Strata](docs/STRATA_UPSTREAM_README.md). Each model layer becomes a SynapseAI graph executing on Gaudi2's matrix engines (MME) and tensor processor cores (TPC). The backend includes more than 100 custom TPC kernel sources, a DFlash2 decode path, and OpenAI- and Anthropic-compatible serving.
 
-**prefill**（8192 行窗口）：
+The supported model is **Qwen3.8-Flash-Next**, a 48-layer, 512-expert MoE with a configured **262,144-token context limit**. The existing CUDA, HIP, SYCL, and Metal code remains upstream context; the Gaudi2 implementation lives in [`hpu/`](hpu/).
 
-| prompt 长度 | 16k | 32k | 64k | 128k | 254k |
-|---|---|---|---|---|---|
-| tok/s | 3562 | 3264 | ~3112 | 2822 | 2404 |
+## Performance
 
-16k 和 32k 是生产服务的实测；64k 及以上是单进程 probe 的实测，长上下文使用稀疏注意力。
+The existing project measurements use **one Gaudi2 HL-225**, **IQ4_XS GGUF**, and **one request at a time**. Decode and prefill use different protocols, described below.
 
-## 测试环境
+<p align="center">
+  <img src="docs/assets/gaudi2-performance.svg" width="100%" alt="Reported decode is 155.7 tokens/s at 2K context and 98.6 at 128K. Prefill is 3,562 tokens/s at 16K and 2,404 at 254K; long-prefill figures come from standalone probes.">
+</p>
 
-| 项目 | 版本 |
-|---|---|
-| 加速卡 | 1 × Intel Gaudi2 HL-225，98304 MiB HBM |
-| 驱动 / SynapseAI | habanalabs 1.24.1 |
-| TPC 编译器 | tpc-clang 2.7.33 |
-| 系统 | Ubuntu 24.04.4，g++ 13.3，CMake 4.4，Python 3.12 |
-| CPU / 内存 | Xeon E5-2696 v3，251 GB（PLE 表约 28.8 GB 放在内存中，建议 ≥ 128 GB） |
+### Decode — production service
 
-## 模型文件
+DFlash2 speculative decoding, **block size 4**, **greedy sampling**, measured with [llm_speedtest](https://github.com/gengchaogit/llm_speedtest) on **October 26, 2026**.
 
-- **目标模型**：[orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF](https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF) 中的 IQ4_XS 版本（3 个分片，config 中写第一个分片的路径）。
-  - 512 个专家全部以 IQ4 码 + F32 scale 的形式常驻 HBM，约 76 GB。
-  - 运行参数需要 `--hbm-limit-mib 94208 --vram-reserve-mib 2048`。
-- **DFlash2 draft 模型**：[incoai/Qwen3.8-Flash-Next-DFlash2](https://huggingface.co/incoai/Qwen3.8-Flash-Next-DFlash2)（方法见 [z-lab/dflash](https://github.com/z-lab/dflash)），下载整个仓库目录，用环境变量 `STRATA_HPU_DFLASH` 指向它。
-- **tokenizer 目录**：Strata setup 为该模型生成的 tokenizer（`pack/full/tokenizer`，参见 [docs/AI_SETUP.md](docs/AI_SETUP.md)），用 config 的 `"tokenizer"` 字段指向它。
+| Context label | 2K | 8K | 32K | 64K | 128K |
+|:---|---:|---:|---:|---:|---:|
+| Decode (tokens/s) | **155.7** | 103.1 | 112.1 | 92.9 | 98.6 |
 
-## Docker（推荐）
+The reported mean accepted-token count is approximately **2.9 tokens per verify round**. A later optimization, enabled from October 27, reduced a four-row verify window from **19.26 to 18.63 ms** at 2K context, using a trimmed mean over 119 windows. That timing is separate from the October 26 throughput table. Without DFlash, a 2K standalone probe reports approximately **12.8 ms per decoded token**.
 
-[`hpu/docker/`](hpu/docker/) 提供镜像和 compose 文件：
+### Prefill — service and standalone probes
 
-- 基础镜像是 Habana 1.24.1 官方镜像（Ubuntu 24.04），TPC 编译器 `tpc-clang` 从 Habana 的 apt 源安装；
-- 引擎和 TPC kernel 在 `docker build` 时编译；
-- 宿主机只需要装 habanalabs 驱动 1.24.x，不需要专门的容器运行时；
-- 卡通过 `/dev/accel/accel0`、`/dev/accel/accel_controlD0` 映射进容器。
-- 还要映射 `/dev/infiniband/uverbs0`，否则 SynapseAI 拿卡时会失败，报 `synDeviceAcquireByDeviceType ... status 26`。
-- 首次启动要从磁盘读入约 100 GB 的模型和 PLE 表；在作者的 NAS 上，加上自动预热，大约 10 分钟后才能服务。
+All rows use an **8,192-row prefill window**. The 16K and 32K results come from the production service; 64K and above come from a single-process probe using sparse attention at long contexts.
+
+| Prompt-length label | 16K | 32K | 64K | 128K | 254K |
+|:---|---:|---:|---:|---:|---:|
+| Prefill (tokens/s) | **3,562** | 3,264 | ~3,112 | 2,822 | 2,404 |
+| Measurement | Service | Service | Probe | Probe | Probe |
+
+These are preserved project measurements, not new runs. The context labels retain the original report's K notation. A 254K prefill probe does not establish full-context production-service validation.
+
+→ [Benchmark notes and conditions](docs/GAUDI2_BENCHMARKS.md) · [Editable data](docs/benchmarks/gaudi2-performance.csv)
+
+## Tested environment
+
+| Component | Recorded configuration |
+|:---|:---|
+| Accelerator | **1× Intel Gaudi2 HL-225**, 98,304 MiB HBM |
+| Driver / SynapseAI | **habanalabs 1.24.1** |
+| TPC compiler | `tpc-clang 2.7.33` |
+| OS / toolchain | Ubuntu 24.04.4, g++ 13.3, CMake 4.4, Python 3.12 |
+| CPU / host RAM | Xeon E5-2696 v3, 251 GB RAM |
+| Host-memory planning | PLE tables occupy approximately 28.8 GB; **128 GB+ RAM recommended** |
+
+## Model files
+
+Prepare these assets before starting the service:
+
+| Asset | Source and configuration |
+|:---|:---|
+| Target | [orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF](https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF), **IQ4_XS**, all 3 shards; point the config at shard 1 |
+| DFlash2 draft | Download the full [incoai/Qwen3.8-Flash-Next-DFlash2](https://huggingface.co/incoai/Qwen3.8-Flash-Next-DFlash2) directory; native runs use `STRATA_HPU_DFLASH` |
+| Tokenizer | The model tokenizer generated by Strata setup, `pack/full/tokenizer`; see [setup instructions](docs/AI_SETUP.md), then set the config's `tokenizer` field |
+
+All 512 experts stay in HBM as IQ4 codes plus F32 scales, approximately **76 GB**. The supplied deployment configuration uses `--hbm-limit-mib 94208 --vram-reserve-mib 2048`. DFlash methodology is described by [z-lab/dflash](https://github.com/z-lab/dflash).
+
+## Docker quick start
+
+The image uses the official Habana **1.24.1 / Ubuntu 24.04** base, installs `tpc-clang`, and builds the engine and kernels during `docker build`. The host needs the compatible Gaudi driver; the recorded setup uses 1.24.1. A separate Habana container runtime is not required by the supplied Compose configuration.
+
+Expected model layout:
+
+```text
+/path/to/models/
+├── qwen3.8-flash-next-uncensored-iq4xs/   # All three GGUF shards
+└── qwen3.8-flash-next-dflash2/           # Full draft-model directory
+
+/path/to/tokenizer/                      # Model-specific tokenizer
+```
 
 ```bash
 git clone https://github.com/JChen-318/gaudi2-single-card-strata.git
 cd gaudi2-single-card-strata
-# MODELS 目录下应有 qwen3.8-flash-next-uncensored-iq4xs/（GGUF 三个分片）和 qwen3.8-flash-next-dflash2/
+
+export API_KEY='replace-with-a-strong-local-key'
 MODELS=/path/to/models TOKENIZER=/path/to/tokenizer \
   docker compose -f hpu/docker/compose.yaml up -d --build
-docker logs -f strata-gaudi2        # 等到出现 ready 和 warm-up done
+
+docker logs -f strata-gaudi2
 ```
 
-或者不用 compose：
+Wait for **`ready`** and **`warm-up done`**. First startup reads approximately 100 GB of model and PLE data; the recorded NAS setup takes about **10 minutes**, including automatic warm-up. Only one process can own the card at a time; stop other Gaudi services first.
+
+The container uses host networking and binds to `0.0.0.0`. **Set `API_KEY` before starting it.** The required device mappings are:
+
+- `/dev/accel/accel0`
+- `/dev/accel/accel_controlD0`
+- `/dev/infiniband/uverbs0` — required during SynapseAI device acquisition, including single-card operation; omitting it can cause `synDeviceAcquireByDeviceType ... status 26`.
+
+<details>
+<summary><strong>Container configuration and direct Docker usage</strong></summary>
+
+| Variable | Behavior |
+|:---|:---|
+| `MODELS`, `TOKENIZER` | Host directories consumed by Compose |
+| `LOGS` | Host log directory for Compose's `/var/log/strata` mount |
+| `STRATA_PORT` | HTTP port; default `8080` |
+| `API_KEY` | Required client key when set |
+| `WARMUP` | Default `1`; sends prompts of 8,191, 4,095, and 2,047 tokens after readiness |
+| `MODEL_GGUF`, `DFLASH_DIR`, `TOKENIZER_DIR` | Container entrypoint path overrides; pass with `docker run -e` or add them to Compose's `environment` section |
+| `PIP_INDEX_URL` | Compose build argument / pip package index |
+
+The stock Compose file forwards `STRATA_PORT`, `API_KEY`, and `WARMUP`; it does not automatically forward the entrypoint's model-path overrides.
 
 ```bash
 docker build -f hpu/docker/Dockerfile -t strata-gaudi2 .
 docker run -d --name strata-gaudi2 --restart unless-stopped \
-  --device /dev/accel/accel0 --device /dev/accel/accel_controlD0 --device /dev/infiniband/uverbs0 \
+  --device /dev/accel/accel0 --device /dev/accel/accel_controlD0 \
+  --device /dev/infiniband/uverbs0 \
   --ipc host --network host --cap-add SYS_NICE --ulimit memlock=-1:-1 \
+  -e API_KEY="$API_KEY" \
   -v /path/to/models:/models:ro -v /path/to/tokenizer:/tokenizer:ro \
   strata-gaudi2
 ```
 
-容器支持的环境变量：
+Stop a Compose deployment with `docker compose -f hpu/docker/compose.yaml stop` from a shell where `MODELS` and `TOKENIZER` are set. The restart policy is `unless-stopped`.
 
-| 变量 | 作用 |
-|---|---|
-| `MODEL_GGUF`、`DFLASH_DIR`、`TOKENIZER_DIR` | 模型、drafter、tokenizer 在容器内的路径（默认值对应上面的挂载方式） |
-| `STRATA_PORT` | 端口，默认 8080 |
-| `API_KEY` | 设置后客户端必须带这个 key |
-| `WARMUP` | 默认 1：服务就绪后用 8191、4095、2047 token 的 prompt 各跑一次，把常用窗口尺寸的图预先编译好 |
-| `--build-arg PIP_INDEX_URL=...` | 构建时换 pip 镜像源 |
+</details>
 
-同一时间只能有一个进程占用这张卡，启动容器前请先停掉宿主机上的其他服务。
+## Build from source
 
-## 构建
+On the Gaudi host, install SynapseAI headers/libraries, `tpc-clang`, and the build tools, then run:
 
 ```bash
 git clone https://github.com/JChen-318/gaudi2-single-card-strata.git
 cd gaudi2-single-card-strata
 pip install -r requirements.txt
+
 cmake -S hpu -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build-release -j8
+ctest --test-dir build-release --output-on-failure
 ```
 
-- 需要已安装 SynapseAI（`/usr/include/habanalabs`、`libSynapse.so`、`libtpc_kernels.so`）和 `tpc-clang`。
-- CMake 会下载固定版本的 llama.cpp（`3cf03257`），只用它的 ggml 来读 GGUF。离线环境可以改用 `-DSTRATA_HPU_GGML_DIR=<该版本的检出目录>`。
-- `build-release/strata-hpu` 是引擎本体，`libstrata_hpu_tpc.so` 里是全部 TPC kernel。
-- 单元测试：在构建目录下运行 `ctest`，不需要占卡。需要上卡的测试要加 `-DSTRATA_HPU_HARDWARE_TESTS=ON`。
+The build needs `/usr/include/habanalabs`, `libSynapse.so`, and `libtpc_kernels.so`. CMake fetches pinned llama.cpp revision `3cf03257` for its GGUF/ggml reader; offline builds can use `-DSTRATA_HPU_GGML_DIR=/path/to/that/checkout`.
 
-## 运行
+Outputs are **`build-release/strata-hpu`** and **`libstrata_hpu_tpc.so`**. Default unit tests do not acquire the device. Hardware tests require an explicit configure option, `-DSTRATA_HPU_HARDWARE_TESTS=ON`.
 
-1. 编辑 [`hpu/deploy/strata-hpu-production.json`](hpu/deploy/strata-hpu-production.json)，把里面的路径改成本机实际位置：
-   - `exe`：引擎可执行文件；
-   - `cwd`：本仓库的检出目录；
-   - `--native` 参数：GGUF 第一个分片；
-   - `STRATA_HPU_DFLASH`：draft 模型目录；
-   - `tokenizer`：tokenizer 目录；
-   - `log`：引擎日志文件。
+### Configure and launch
 
-   这份就是作者生产服务在用的配置，`env` 里的 `STRATA_HPU_*` 开关决定启用哪些 kernel 和路径。每个开关的说明见 [`hpu/include/strata/hpu/performance_modes.hpp`](hpu/include/strata/hpu/performance_modes.hpp)。
-2. 启动和停止：
+Edit [`hpu/deploy/strata-hpu-production.json`](hpu/deploy/strata-hpu-production.json) for your paths:
 
-   ```bash
-   CONFIG=$PWD/hpu/deploy/strata-hpu-production.json PORT=8080 bash hpu/deploy/run-production.sh
-   bash hpu/deploy/stop-production.sh
-   ```
+| Field | Set it to |
+|:---|:---|
+| `exe`, `cwd` | Built engine and repository checkout |
+| `args` → `--native` | First GGUF shard |
+| `env` → `STRATA_HPU_DFLASH` | Draft-model directory |
+| `tokenizer`, `log` | Tokenizer directory and engine log file |
+| `api_key` | Add a nonempty client key; the launcher binds to all interfaces |
 
-   引擎加载完成、报 READY 之后，API 地址是 `http://<host>:8080/v1`（例如 `/v1/chat/completions`），浏览器打开 `http://<host>:8080/` 即可聊天。
-3. 默认没有 API key。如果服务暴露在本机以外，请在 config 里加上 `"api_key": "..."`。
+The checked-in configuration contains the recorded production optimization switches. Each switch is documented in [`performance_modes.hpp`](hpu/include/strata/hpu/performance_modes.hpp).
 
-## 主要实现
+```bash
+CONFIG=$PWD/hpu/deploy/strata-hpu-production.json PORT=8080 \
+  bash hpu/deploy/run-production.sh
 
-- **MoE**
-  - decode 时，每个 token 选中的 10 个路由专家和 1 个共享专家，在 TPC 上直接用 IQ4×Q8 的 GEMV 计算（`hpu/tpc/iq4q8_gemv_packed.c`）。
-  - prefill 时，先按专家把 IQ4 展开成 BF16 分块，再交给 MME 做分组 GEMM（`STRATA_HPU_MOE_MME`）。
-- **稠密投影**：BF16 合并 GEMM，在 MME 上执行。
-- **GDN（线性注意力层，36 层）**
-  - conv、prepare、递推、norm 都是 TPC kernel；
-  - prefill 用分块（chunked）GDN；
-  - DFlash 的 4 行 verify 窗口用一个 kernel 完成 4 步递推。
-- **QSA（全注意力层，每 4 层一层，共 12 层）**
-  - FP8 KV cache；
-  - 在设备上完成块级 top-k 选择；
-  - 长上下文 prefill 用稀疏 gather 注意力，并用 Synapse 的 SDPA（把 GQA 折叠进行维）；
-  - decode 和 verify 按选中的块做 gather 注意力。
-- **DFlash2 投机解码**
-  - 4 行 verify 窗口，argmax 在设备上计算；
-  - 采样请求也能用，需要 `--spec-prob`。
-- **HC 多流残差、PLE**：用融合的 TPC kernel，每层的图串成一条 launch 链，共用一个 workspace。
+# Stop the background service
+bash hpu/deploy/stop-production.sh
+```
 
-## 已知限制
+## API
 
-- **单卡串行**：同时来多个请求时会排队，一个请求做 prefill 时，另一个请求的 decode 会暂停。
-- **首次编译**：图按窗口大小和上下文分档编译，第一次遇到新的 prompt 尾窗口大小时要现场编译，长 prompt 首次可能多花 10 s 以上。
-  - 启动后用长度为 8191、4095、2047 token 的 prompt 各请求一次，可以把常用尺寸预先编译好。
-  - decode 跨过上下文分档线（32k 以内每 4096 token 一档）时，会有一次约 0.2 s 的停顿。
-- 只支持 Qwen3.8-Flash-Next 这一模型结构，引擎会检查模型几何参数。
+After engine readiness, the OpenAI-compatible base URL is **`http://127.0.0.1:8080/v1`**. The browser chat UI is at **`http://127.0.0.1:8080/`**.
 
-## 许可
+```bash
+curl http://127.0.0.1:8080/v1/chat/completions \
+  -H "Authorization: Bearer $API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen3.8-flash-next-uncensored-iq4_xs",
+    "messages": [{"role": "user", "content": "Explain mixture-of-experts inference."}],
+    "max_tokens": 256,
+    "temperature": 0
+  }'
+```
 
-MIT。上游 Strata 的版权声明见 [LICENSE](LICENSE)；`hpu/` 目录是本仓库新增的 Gaudi2 后端。
+The server also exposes **`POST /v1/messages`** for Anthropic-compatible clients and **`GET /v1/models`** for the configured model name. The production config includes `--spec-prob` for sampled speculative requests; the throughput table above measures **greedy** decoding.
+
+## How it works
+
+| Component | Gaudi2 execution path |
+|:---|:---|
+| MoE decode | TPC IQ4×Q8 GEMV for 10 routed experts plus 1 shared expert per token |
+| MoE prefill | Expand IQ4 expert blocks to BF16, then grouped GEMM on MME |
+| Dense projections | Merged BF16 GEMM on MME |
+| GDN — 36 layers | TPC convolution, preparation, recurrence, and normalization; chunked prefill and fused four-step verification |
+| QSA — 12 layers | FP8 KV cache, device block-level top-k selection, sparse gather attention, and Synapse SDPA for long prefill |
+| DFlash2 | Four-row verification windows with device-side argmax; sampled requests use `--spec-prob` |
+| HC / PLE | Fused TPC kernels and chained layer launches sharing one workspace |
+
+## Repository guide
+
+| Location | Purpose |
+|:---|:---|
+| [`hpu/src/`](hpu/src/) / [`hpu/include/strata/hpu/`](hpu/include/strata/hpu/) | Model loading, graphs, scheduling, and performance switches |
+| [`hpu/tpc/`](hpu/tpc/) | Custom TPC kernels and glue registration |
+| [`hpu/docker/`](hpu/docker/) | Image, Compose, entrypoint, and warm-up |
+| [`hpu/deploy/`](hpu/deploy/) | Production config and start/stop scripts |
+| [`hpu/tests/`](hpu/tests/) / [`hpu/tools/`](hpu/tools/) | Unit tests, kernel probes, and device/model tools |
+| [`serve/`](serve/) | Shared Python API server and web UI |
+| [Gaudi2 benchmark notes](docs/GAUDI2_BENCHMARKS.md) | Recorded performance and measurement boundaries |
+| [Upstream README](docs/STRATA_UPSTREAM_README.md) / [Setup guide](docs/AI_SETUP.md) | Original Strata context and tokenizer preparation |
+
+## Limitations
+
+- **One active request.** Requests queue serially; another request's prefill pauses decoding. This is separate from the vLLM repository's concurrency behavior.
+- **First-use compilation.** Graphs are compiled for window sizes and context buckets. A new long-prompt tail window may add more than 10 seconds on its first use. Warm-up covers common sizes, not every possible shape.
+- **Context transitions.** Decode can pause for approximately 0.2 seconds when crossing a context bucket; below 32K, buckets are spaced every 4,096 tokens.
+- **Model scope.** The native Gaudi2 engine checks model geometry and currently targets Qwen3.8-Flash-Next. Upstream backend support does not imply support in `hpu/`.
+- **Benchmark scope.** Service and probe results use different paths; full-context probe measurements and the configured context limit are not equivalent to production-service validation.
+
+## License
+
+[MIT](LICENSE). Preserve the upstream Strata copyright notice. The `hpu/` directory is this repository's added native Gaudi2 backend.

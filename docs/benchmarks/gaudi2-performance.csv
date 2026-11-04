@@ -1,0 +1,11 @@
+phase,context_label,tokens_per_s,approximate,measurement,conditions
+decode,2K,155.7,false,production service,2026-10-26; DFlash2 block 4; greedy; llm_speedtest
+decode,8K,103.1,false,production service,2026-10-26; DFlash2 block 4; greedy; llm_speedtest
+decode,32K,112.1,false,production service,2026-10-26; DFlash2 block 4; greedy; llm_speedtest
+decode,64K,92.9,false,production service,2026-10-26; DFlash2 block 4; greedy; llm_speedtest
+decode,128K,98.6,false,production service,2026-10-26; DFlash2 block 4; greedy; llm_speedtest
+prefill,16K,3562,false,production service,8192-row window; sparse attention at long contexts
+prefill,32K,3264,false,production service,8192-row window; sparse attention at long contexts
+prefill,64K,3112,true,standalone probe,8192-row window; sparse attention at long contexts
+prefill,128K,2822,false,standalone probe,8192-row window; sparse attention at long contexts
+prefill,254K,2404,false,standalone probe,8192-row window; sparse attention at long contexts

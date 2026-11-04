@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="710" viewBox="0 0 1200 710" role="img" aria-labelledby="title desc">
+  <title id="title">Recorded Gaudi2 throughput</title>
+  <desc id="desc">Decode service measurements use DFlash2 block four and greedy sampling. Prefill uses 8192-row windows; 16K and 32K are service results, longer prompts are standalone probes. Decode and prefill have independent axes, both in tokens per second.</desc>
+  <rect width="1200" height="710" rx="16" fill="#0d1117"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="56" y="54" font-size="38" fill="#f0f6fc" font-weight="650" text-anchor="start">Measured on one Gaudi2.</text>
+    <text x="56" y="92" font-size="23" fill="#a5b4c5" font-weight="400" text-anchor="start">IQ4_XS · single request · service and probe results shown separately</text>
+    <line x1="56" y1="130" x2="82" y2="130" stroke="#58a6ff" stroke-width="8"/>
+    <text x="96" y="138" font-size="21" fill="#a5b4c5" font-weight="400" text-anchor="start">Production service</text>
+    <line x1="400" y1="130" x2="426" y2="130" stroke="#3fb950" stroke-width="3"/>
+    <text x="440" y="138" font-size="21" fill="#a5b4c5" font-weight="400" text-anchor="start">Standalone probe</text>
+    <text x="56" y="193" font-size="32" fill="#f0f6fc" font-weight="600" text-anchor="start">Decode</text>
+    <text x="56" y="229" font-size="22" fill="#a5b4c5" font-weight="400" text-anchor="start">DFlash2 block 4 · greedy</text>
+    <line x1="130.0" y1="270" x2="130.0" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="130.0" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">0</text>
+    <line x1="246.66666666666666" y1="270" x2="246.66666666666666" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="246.67" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">60</text>
+    <line x1="363.3333333333333" y1="270" x2="363.3333333333333" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="363.33" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">120</text>
+    <line x1="480.0" y1="270" x2="480.0" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="480.0" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">180</text>
+    <text x="56" y="309" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">2K</text>
+    <rect x="130" y="285" width="302.75" height="30" rx="3" fill="#58a6ff"/>
+    <text x="442.75" y="308" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">155.7</text>
+    <text x="56" y="375" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">8K</text>
+    <rect x="130" y="351" width="200.47" height="30" rx="3" fill="#58a6ff"/>
+    <text x="340.47" y="374" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">103.1</text>
+    <text x="56" y="441" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">32K</text>
+    <rect x="130" y="417" width="217.97" height="30" rx="3" fill="#58a6ff"/>
+    <text x="357.97" y="440" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">112.1</text>
+    <text x="56" y="507" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">64K</text>
+    <rect x="130" y="483" width="180.64" height="30" rx="3" fill="#58a6ff"/>
+    <text x="320.64" y="506" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">92.9</text>
+    <text x="56" y="573" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">128K</text>
+    <rect x="130" y="549" width="191.72" height="30" rx="3" fill="#58a6ff"/>
+    <text x="331.72" y="572" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">98.6</text>
+    <text x="56" y="622" font-size="20" fill="#a5b4c5" font-weight="400" text-anchor="start">tokens/s · independent axis</text>
+    <text x="652" y="193" font-size="32" fill="#f0f6fc" font-weight="600" text-anchor="start">Prefill</text>
+    <text x="652" y="229" font-size="22" fill="#a5b4c5" font-weight="400" text-anchor="start">8,192-row windows</text>
+    <line x1="726.0" y1="270" x2="726.0" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="726.0" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">0</text>
+    <line x1="813.5" y1="270" x2="813.5" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="813.5" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">1,000</text>
+    <line x1="901.0" y1="270" x2="901.0" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="901.0" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">2,000</text>
+    <line x1="988.5" y1="270" x2="988.5" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="988.5" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">3,000</text>
+    <line x1="1076.0" y1="270" x2="1076.0" y2="589" stroke="#303b4a" stroke-width="1"/>
+    <text x="1076.0" y="261" font-size="19" fill="#a5b4c5" font-weight="400" text-anchor="middle">4,000</text>
+    <text x="652" y="309" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">16K</text>
+    <rect x="726" y="285" width="311.68" height="30" rx="3" fill="#58a6ff"/>
+    <text x="1047.67" y="308" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">3,562</text>
+    <text x="652" y="375" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">32K</text>
+    <rect x="726" y="351" width="285.60" height="30" rx="3" fill="#58a6ff"/>
+    <text x="1021.6" y="374" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">3,264</text>
+    <text x="652" y="441" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">64K</text>
+    <rect x="726" y="417" width="272.30" height="30" rx="3" fill="none" stroke="#3fb950" stroke-width="2"/>
+    <text x="1008.3" y="440" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">~3,112</text>
+    <text x="652" y="507" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">128K</text>
+    <rect x="726" y="483" width="246.93" height="30" rx="3" fill="none" stroke="#3fb950" stroke-width="2"/>
+    <text x="982.92" y="506" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">2,822</text>
+    <text x="652" y="573" font-size="24" fill="#f0f6fc" font-weight="600" text-anchor="start">254K</text>
+    <rect x="726" y="549" width="210.35" height="30" rx="3" fill="none" stroke="#3fb950" stroke-width="2"/>
+    <text x="946.35" y="572" font-size="23" fill="#f0f6fc" font-weight="600" text-anchor="start">2,404</text>
+    <text x="652" y="622" font-size="20" fill="#a5b4c5" font-weight="400" text-anchor="start">tokens/s · independent axis</text>
+    <line x1="56" y1="648" x2="1144" y2="648" stroke="#303b4a" stroke-width="1"/>
+    <text x="56" y="681" font-size="20" fill="#a5b4c5" font-weight="400" text-anchor="start">Recorded project results · decode dated Oct 26, 2026 · benchmark notes in docs/</text>
+  </g>
+</svg>

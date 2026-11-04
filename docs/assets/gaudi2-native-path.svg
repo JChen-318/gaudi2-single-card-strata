@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="title desc">
+  <title id="title">Strata native Gaudi2 backend</title>
+  <desc id="desc">512 IQ4 experts resident in HBM, 36 GDN layers and 12 QSA layers compiled as SynapseAI graphs, with four-row DFlash2 verification. See the README for the full architecture.</desc>
+  <rect width="1200" height="340" rx="16" fill="#0d1117"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="56" y="48" font-size="20" fill="#58a6ff" font-weight="600" text-anchor="start">STRATA / NATIVE SYNAPSEAI BACKEND</text>
+    <text x="1144" y="48" font-size="20" fill="#a5b4c5" font-weight="400" text-anchor="end">1 × GAUDI2</text>
+    <text x="56" y="116" font-size="60" fill="#f0f6fc" font-weight="650" text-anchor="start">512 experts. One Gaudi2.</text>
+    <text x="56" y="157" font-size="25" fill="#a5b4c5" font-weight="400" text-anchor="start">Qwen3.8-Flash-Next · IQ4_XS · custom TPC kernels</text>
+    <line x1="56" y1="196" x2="360" y2="196" stroke="#58a6ff" stroke-width="2"/>
+    <text x="56" y="235" font-size="25" fill="#f0f6fc" font-weight="600" text-anchor="start">Resident in HBM</text>
+    <text x="56" y="274" font-size="24" fill="#f0f6fc" font-weight="400" text-anchor="start">512 IQ4 experts</text>
+    <text x="56" y="307" font-size="22" fill="#a5b4c5" font-weight="400" text-anchor="start">+ F32 scales</text>
+    <line x1="448" y1="196" x2="752" y2="196" stroke="#58a6ff" stroke-width="2"/>
+    <text x="448" y="235" font-size="25" fill="#f0f6fc" font-weight="600" text-anchor="start">Native layer graphs</text>
+    <text x="448" y="274" font-size="24" fill="#f0f6fc" font-weight="400" text-anchor="start">36 GDN + 12 QSA</text>
+    <text x="448" y="307" font-size="22" fill="#a5b4c5" font-weight="400" text-anchor="start">MME + TPC execution</text>
+    <line x1="840" y1="196" x2="1144" y2="196" stroke="#58a6ff" stroke-width="2"/>
+    <text x="840" y="235" font-size="25" fill="#f0f6fc" font-weight="600" text-anchor="start">DFlash2 verification</text>
+    <text x="840" y="274" font-size="24" fill="#f0f6fc" font-weight="400" text-anchor="start">Four-row windows</text>
+    <text x="840" y="307" font-size="22" fill="#a5b4c5" font-weight="400" text-anchor="start">Device-side argmax</text>
+  </g>
+</svg>
