@@ -221,12 +221,16 @@ const QsaConfig& QsaBlock::config() const {auto& p=*impl_;std::lock_guard lock(p
 void QsaBlock::write_snapshot(StateWriter& writer,const QsaState::Checkpoint& point) const {auto& p=*impl_;std::lock_guard lock(p.mutex);p.state.write_snapshot(writer,point);}
 QsaState::Checkpoint QsaBlock::read_snapshot(StateReader& reader,uint32_t cells) const {auto& p=*impl_;std::lock_guard lock(p.mutex);return p.state.read_snapshot(reader,cells);}
 void QsaBlock::restore(const QsaState::Checkpoint& point) {
-    auto& p=*impl_;std::lock_guard lock(p.mutex);p.state.restore(point);if(p.cache) p.cache->valid=0;
+    auto& p=*impl_;std::lock_guard lock(p.mutex);p.state.restore(point);
+    // Both device mirrors describe the state that was replaced: the K/V rows (valid) and the pooled index blocks
+    // (pooled_valid). sync_pooled re-sends only the last 8 blocks below pooled_valid, so keeping it would leave the
+    // earlier pooled blocks of the previous state in the device selection.
+    if(p.cache) {p.cache->valid=0;p.cache->pooled_valid=0;}
     // The whole state was replaced, so a window staged before the restore no longer describes it.
     if(p.staged) p.staged->active=false;
 }
 void QsaBlock::reset() {
-    auto& p=*impl_;std::lock_guard lock(p.mutex);p.state.reset();if(p.cache) p.cache->valid=0;
+    auto& p=*impl_;std::lock_guard lock(p.mutex);p.state.reset();if(p.cache) {p.cache->valid=0;p.cache->pooled_valid=0;}
     if(p.staged) p.staged->active=false;
 }
 namespace {
