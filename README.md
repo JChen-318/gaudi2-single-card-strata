@@ -7,10 +7,18 @@
 [![Intel Gaudi2: 96 GiB HBM](https://img.shields.io/badge/Intel_Gaudi2-96_GiB_HBM-0071C5?style=flat-square)](#tested-environment)
 [![Backend: SynapseAI and TPC](https://img.shields.io/badge/Backend-SynapseAI_%2B_TPC-4B5563?style=flat-square)](#how-it-works)
 [![License: MIT](https://img.shields.io/badge/License-MIT-3FB950?style=flat-square)](LICENSE)
+[![Status: Discontinued](https://img.shields.io/badge/Status-Discontinued-D73A4A?style=flat-square)](https://github.com/JChen-318/GaudiInfer)
 
 [Performance](#performance) · [Docker quick start](#docker-quick-start) · [Build from source](#build-from-source) · [API](#api) · [Limitations](#limitations)
 
 </div>
+
+> [!WARNING]
+> **Discontinued / 停止维护公告**
+>
+> This repository is **no longer maintained or supported**. All future development and updates have moved exclusively to **[GaudiInfer](https://github.com/JChen-318/GaudiInfer)** (native C++ on Intel Gaudi2: Qwen3.8-27B FP8 + DSpine, Qwen-Image-2.1-Turbo, MiniMax-H3-Image, MiniMax-H3 Video & Audio, and the unified Studio & Monitor WebUI).
+>
+> 本仓库已**停止支持与更新**，后续所有开发与更新均仅在 **[GaudiInfer](https://github.com/JChen-318/GaudiInfer)** 仓库进行。
 
 <p align="center">
   <img src="docs/assets/gaudi2-native-path.svg" width="100%" alt="Native Strata backend: 512 IQ4 experts reside in Gaudi2 HBM; SynapseAI graphs run on MME and custom TPC kernels, with DFlash2 verification.">
